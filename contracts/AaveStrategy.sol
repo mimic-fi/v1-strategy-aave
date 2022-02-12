@@ -44,6 +44,8 @@ contract AaveStrategy is IStrategy, Ownable {
     IERC20 internal immutable _aToken;
     ILendingPool internal immutable _lendingPool;
 
+    uint256 internal immutable _tokenScale;
+
     modifier onlyVault() {
         require(address(_vault) == msg.sender, 'CALLER_IS_NOT_VAULT');
         _;
@@ -66,6 +68,8 @@ contract AaveStrategy is IStrategy, Ownable {
         _slippage = slippage;
 
         _setMetadataURI(metadataURI);
+
+        _tokenScale = _getTokenScale(token);
     }
 
     function getVault() external view returns (address) {
@@ -97,7 +101,7 @@ contract AaveStrategy is IStrategy, Ownable {
     }
 
     function getTotalValue() external view override returns (uint256) {
-        return _getATokenBalance();
+        return SafeMath.mul(_getATokenBalance(), _tokenScale);
     }
 
     function setMetadataURI(string memory metadataURI) external onlyOwner {
@@ -121,8 +125,8 @@ contract AaveStrategy is IStrategy, Ownable {
 
         uint256 finalATokenBalance = _getATokenBalance();
 
-        value = amount;
-        totalValue = finalATokenBalance;
+        value = SafeMath.mul(amount, _tokenScale);
+        totalValue = SafeMath.mul(finalATokenBalance, _tokenScale);
     }
 
     function onExit(uint256 ratio, bool emergency, bytes memory)
@@ -141,8 +145,8 @@ contract AaveStrategy is IStrategy, Ownable {
 
         _token.approve(address(_vault), amount);
 
-        value = amount;
-        totalValue = _getATokenBalance();
+        value = SafeMath.mul(amount, _tokenScale);
+        totalValue = SafeMath.mul(_getATokenBalance(), _tokenScale);
         return (address(_token), amount, value, totalValue);
     }
 

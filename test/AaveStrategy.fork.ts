@@ -1,16 +1,19 @@
 import { bn, deploy, fp, getSigner, impersonate, instanceAt } from '@mimic-fi/v1-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
+import { network } from 'hardhat'
 import { expect } from 'chai'
 import { BigNumber, Contract } from 'ethers'
 
 describe('AaveStrategy - USDC - Lend', function () {
   let owner: SignerWithAddress,
     whale: SignerWithAddress,
+    trader: SignerWithAddress,
     vault: Contract,
     strategy: Contract,
     lendingPool: Contract,
     aToken: Contract,
-    usdc: Contract
+    usdc: Contract,
+    weth: Contract
 
   // eslint-disable-next-line no-secrets/no-secrets
   const WHALE_WITH_USDC = '0x55FE002aefF02F77364de339a1292923A15844B8'
@@ -24,9 +27,15 @@ describe('AaveStrategy - USDC - Lend', function () {
   const USDC_SCALING_FACTOR = 1e12
 
   // eslint-disable-next-line no-secrets/no-secrets
+  const WETH = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
+
+  // eslint-disable-next-line no-secrets/no-secrets
   const UNISWAP_V2_ROUTER_ADDRESS = '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
   // eslint-disable-next-line no-secrets/no-secrets
   const CHAINLINK_ORACLE_USDC_ETH = '0x986b5E1e1755e3C2440e960477f25201B0a8bbD4'
+  const PRICE_ONE_ORACLE = '0x1111111111111111111111111111111111111111'
+
+  const TOKEN_SCALE = bn(1e12)
 
   const expectWithError = (actual: BigNumber, expected: BigNumber) => {
     expect(actual).to.be.at.least(bn(expected).sub(1))
@@ -38,8 +47,7 @@ describe('AaveStrategy - USDC - Lend', function () {
   }
 
   before('load signers', async () => {
-    owner = await getSigner()
-    owner = await impersonate(owner.address, fp(100))
+    trader = await getSigner(1)
     whale = await impersonate(WHALE_WITH_USDC, fp(100))
   })
 
@@ -49,8 +57,8 @@ describe('AaveStrategy - USDC - Lend', function () {
     const whitelistedTokens: string[] = []
     const whitelistedStrategies: string[] = []
 
-    const priceOracleTokens: string[] = [USDC]
-    const priceOracleFeeds: string[] = [CHAINLINK_ORACLE_USDC_ETH]
+    const priceOracleTokens: string[] = [USDC, WETH]
+    const priceOracleFeeds: string[] = [CHAINLINK_ORACLE_USDC_ETH, PRICE_ONE_ORACLE]
 
     const priceOracle = await deploy(
       '@mimic-fi/v1-chainlink-price-oracle/artifacts/contracts/ChainLinkPriceOracle.sol/ChainLinkPriceOracle',
@@ -76,11 +84,17 @@ describe('AaveStrategy - USDC - Lend', function () {
     lendingPool = await instanceAt('ILendingPool', LENDING_POOL)
     aToken = await instanceAt('IERC20', AUSDC)
     usdc = await instanceAt('IERC20', USDC)
+    weth = await instanceAt('IWETH', WETH)
   })
 
   before('deposit to Vault', async () => {
     await usdc.connect(whale).approve(vault.address, toUSDC(100))
-    await vault.connect(whale).deposit(whale.address, usdc.address, toUSDC(100))
+    await vault.connect(whale).deposit(whale.address, usdc.address, toUSDC(100), '0x')
+  })
+
+  before('prepare trader', async () => {
+    await usdc.connect(whale).transfer(trader.address, toUSDC(2500000))
+    await weth.connect(trader).deposit({ value: fp(50) })
   })
 
   before('deploy strategy', async () => {
@@ -111,7 +125,7 @@ describe('AaveStrategy - USDC - Lend', function () {
     const currentStrategyBalance = await usdc.balanceOf(strategy.address)
     expect(currentStrategyBalance).to.be.equal(previousStrategyBalance)
 
-    const expectedValue = await aToken.balanceOf(strategy.address)
+    const expectedValue = (await aToken.balanceOf(strategy.address)).mul(TOKEN_SCALE)
 
     const currentInvestment = await vault.getAccountInvestment(whale.address, strategy.address)
     expectWithError(currentInvestment[0], expectedValue)
@@ -119,36 +133,24 @@ describe('AaveStrategy - USDC - Lend', function () {
 
     const strategyShares = await vault.getStrategyShares(strategy.address)
     expectWithError(currentInvestment[1], strategyShares)
-    console.log('strategyShares', strategyShares.toString())
 
-    const totalValue = await strategy.getTotalValue()
-    console.log('totalValue', totalValue.toString())
+    const strategyShareValue = await vault.getStrategyShareValue(strategy.address)
+    const accountValue = await vault.getAccountCurrentValue(whale.address, strategy.address)
 
-    console.log('account shares', currentInvestment[1].toString())
-
-    // const strategyShareValue = await vault.getStrategyShareValue(strategy.address)
-    // const accountValue = await vault.getAccountCurrentValue(whale.address, strategy.address)
-    //  console.log('accountValue', accountValue.toString())
-
-    // expectWithError(accountValue, strategyShares.mul(strategyShareValue).div(bn(1e18)))
+    expectWithError(accountValue, strategyShares.mul(strategyShareValue).div(bn(1e18)))
   })
 
-  /*it.skip('more gains to recover lost in single token join slipage', async () => {
+  it('more gains to recover lost in single token join slipage', async () => {
     const previousValue = await vault.getAccountCurrentValue(whale.address, strategy.address)
 
-    let amount: BigNumber
-    for (let index = 0; index < 100; index++) {
-      amount = toUSDC(2000000)
-      await swap(trader, amount, usdc, dai)
-      amount = await dai.balanceOf(trader.address)
-      await swap(trader, amount, dai, usdc)
-    }
+    await network.provider.send('evm_increaseTime', [3600])
+    await network.provider.send('evm_mine')
 
     const currentValue = await vault.getAccountCurrentValue(whale.address, strategy.address)
     expect(currentValue).to.be.gt(previousValue)
   })
 
-  it.skip('exit  50% strategy', async () => {
+  it('exit  50% strategy', async () => {
     const exitRatio = fp(0.5)
     const initialAmount = toUSDC(50).mul(exitRatio).div(bn(1e18))
     const initialBalance = await vault.getAccountBalance(whale.address, usdc.address)
@@ -165,9 +167,7 @@ describe('AaveStrategy - USDC - Lend', function () {
     const currentStrategyBalance = await usdc.balanceOf(strategy.address)
     expect(currentStrategyBalance).to.be.equal(0)
 
-    const strategyBptBalance = await pool.balanceOf(strategy.address)
-    const rate = await pool.getRate()
-    const expectedValue = strategyBptBalance.mul(rate).div(bn(1e18))
+    const expectedValue = (await aToken.balanceOf(strategy.address)).mul(TOKEN_SCALE)
 
     const currentInvestment = await vault.getAccountInvestment(whale.address, strategy.address)
     expectWithError(currentInvestment[0], expectedValue)
@@ -179,28 +179,39 @@ describe('AaveStrategy - USDC - Lend', function () {
     const strategyShareValue = await vault.getStrategyShareValue(strategy.address)
     const accountValue = await vault.getAccountCurrentValue(whale.address, strategy.address)
 
-    //rounding issue
-    expectWithError(accountValue, strategyShares.mul(strategyShareValue).div(bn(1e18)).add(12))
+    expectWithError(accountValue, strategyShares.mul(strategyShareValue).div(bn(1e18)))
 
-    //No roundiing issues
     const totalValue = await strategy.getTotalValue()
     const strategyShareValueScaled = totalValue.mul(bn(1e36)).div(strategyShares)
     expectWithError(accountValue, strategyShares.mul(strategyShareValueScaled).div(bn(1e36)))
   })
 
-  it.skip('handle USDC airdrops', async () => {
+  it('handle USDC airdrops', async () => {
     const previousValue = await vault.getAccountCurrentValue(whale.address, strategy.address)
 
     //airdrop 1000
     usdc.connect(trader).transfer(strategy.address, toUSDC(100))
-    //invest aidrop
+    //invest airdrop
     await strategy.invest(usdc.address)
 
     const currentValue = await vault.getAccountCurrentValue(whale.address, strategy.address)
     expect(currentValue).to.be.gt(previousValue)
   })
 
-  it.skip('exit  100% strategy', async () => {
+  it('handle WETH airdrops', async () => {
+    const previousValue = await vault.getAccountCurrentValue(whale.address, strategy.address)
+
+    //airdrop 50
+    weth.connect(trader).transfer(strategy.address, fp(50))
+
+    //invest airdrop
+    await strategy.invest(weth.address)
+
+    const currentValue = await vault.getAccountCurrentValue(whale.address, strategy.address)
+    expect(currentValue).to.be.gt(previousValue)
+  })
+
+  it('exit  100% strategy', async () => {
     const exitRatio = fp(1)
     const initialAmount = toUSDC(25)
     const initialBalance = await vault.getAccountBalance(whale.address, usdc.address)
@@ -224,5 +235,5 @@ describe('AaveStrategy - USDC - Lend', function () {
 
     const accountValue = await vault.getAccountCurrentValue(whale.address, strategy.address)
     expectWithError(accountValue, bn(0))
-  })*/
+  })
 })
