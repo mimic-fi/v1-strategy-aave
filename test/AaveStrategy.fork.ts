@@ -1,12 +1,11 @@
 import { bn, deploy, fp, getSigner, impersonate, instanceAt } from '@mimic-fi/v1-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
-import { network } from 'hardhat'
 import { expect } from 'chai'
 import { BigNumber, Contract } from 'ethers'
+import { network } from 'hardhat'
 
 describe('AaveStrategy - USDC - Lend', function () {
-  let owner: SignerWithAddress,
-    whale: SignerWithAddress,
+  let whale: SignerWithAddress,
     trader: SignerWithAddress,
     vault: Contract,
     strategy: Contract,
