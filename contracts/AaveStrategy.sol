@@ -66,10 +66,9 @@ contract AaveStrategy is IStrategy, Ownable {
         _aToken = aToken;
         _lendingPool = lendingPool;
         _slippage = slippage;
+        _tokenScale = _getTokenScale(token);
 
         _setMetadataURI(metadataURI);
-
-        _tokenScale = _getTokenScale(token);
     }
 
     function getVault() external view returns (address) {
@@ -109,7 +108,7 @@ contract AaveStrategy is IStrategy, Ownable {
     }
 
     function withdraw(IERC20 token, address recipient) external onlyOwner {
-        if (token != _token && address(token) != address(_aToken)) {
+        if (token != _token && token != _aToken) {
             uint256 balance = token.balanceOf(address(this));
             token.transfer(recipient, balance);
         }
