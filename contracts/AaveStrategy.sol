@@ -44,8 +44,6 @@ contract AaveStrategy is IStrategy, Ownable {
     IERC20 internal immutable _aToken;
     ILendingPool internal immutable _lendingPool;
 
-    uint256 internal immutable _tokenScale;
-
     modifier onlyVault() {
         require(address(_vault) == msg.sender, 'CALLER_IS_NOT_VAULT');
         _;
@@ -66,7 +64,6 @@ contract AaveStrategy is IStrategy, Ownable {
         _aToken = aToken;
         _lendingPool = lendingPool;
         _slippage = slippage;
-        _tokenScale = _getTokenScale(token);
 
         _setMetadataURI(metadataURI);
     }
@@ -100,7 +97,7 @@ contract AaveStrategy is IStrategy, Ownable {
     }
 
     function getTotalValue() external view override returns (uint256) {
-        return SafeMath.mul(_getATokenBalance(), _tokenScale);
+        return _getATokenBalance();
     }
 
     function setMetadataURI(string memory metadataURI) external onlyOwner {
@@ -122,10 +119,8 @@ contract AaveStrategy is IStrategy, Ownable {
     {
         invest(_token);
 
-        uint256 finalATokenBalance = _getATokenBalance();
-
-        value = SafeMath.mul(amount, _tokenScale);
-        totalValue = SafeMath.mul(finalATokenBalance, _tokenScale);
+        value = amount;
+        totalValue = _getATokenBalance();
     }
 
     function onExit(uint256 ratio, bool emergency, bytes memory)
@@ -144,9 +139,9 @@ contract AaveStrategy is IStrategy, Ownable {
 
         _token.approve(address(_vault), amount);
 
-        value = SafeMath.mul(amount, _tokenScale);
-        totalValue = SafeMath.mul(_getATokenBalance(), _tokenScale);
-        return (address(_token), amount, value, totalValue);
+        token = address(_token);
+        value = amount;
+        totalValue = _getATokenBalance();
     }
 
     function invest(IERC20 token) public {
@@ -205,13 +200,6 @@ contract AaveStrategy is IStrategy, Ownable {
 
     function _getATokenBalance() internal view returns (uint256) {
         return _aToken.balanceOf(address(this));
-    }
-
-    function _getTokenScale(IERC20 token) internal view returns (uint256) {
-        uint256 decimals = IERC20Metadata(address(token)).decimals();
-        require(decimals <= 18, 'TOKEN_WORKS_WITH_BIGGER_DECIMALS');
-        uint256 diff = 18 - decimals;
-        return 10**diff;
     }
 
     function _setMetadataURI(string memory metadataURI) private {

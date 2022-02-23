@@ -34,8 +34,6 @@ describe('AaveStrategy - USDC - Lend', function () {
   const CHAINLINK_ORACLE_USDC_ETH = '0x986b5E1e1755e3C2440e960477f25201B0a8bbD4'
   const PRICE_ONE_ORACLE = '0x1111111111111111111111111111111111111111'
 
-  const TOKEN_SCALE = bn(1e12)
-
   const expectWithError = (actual: BigNumber, expected: BigNumber) => {
     expect(actual).to.be.at.least(bn(expected).sub(1))
     expect(actual).to.be.at.most(bn(expected).add(1))
@@ -124,7 +122,7 @@ describe('AaveStrategy - USDC - Lend', function () {
     const currentStrategyBalance = await usdc.balanceOf(strategy.address)
     expect(currentStrategyBalance).to.be.equal(previousStrategyBalance)
 
-    const expectedValue = (await aToken.balanceOf(strategy.address)).mul(TOKEN_SCALE)
+    const expectedValue = await aToken.balanceOf(strategy.address)
 
     const currentInvestment = await vault.getAccountInvestment(whale.address, strategy.address)
     expectWithError(currentInvestment[0], expectedValue)
@@ -166,7 +164,7 @@ describe('AaveStrategy - USDC - Lend', function () {
     const currentStrategyBalance = await usdc.balanceOf(strategy.address)
     expect(currentStrategyBalance).to.be.equal(0)
 
-    const expectedValue = (await aToken.balanceOf(strategy.address)).mul(TOKEN_SCALE)
+    const expectedValue = await aToken.balanceOf(strategy.address)
 
     const currentInvestment = await vault.getAccountInvestment(whale.address, strategy.address)
     expectWithError(currentInvestment[0], expectedValue)
