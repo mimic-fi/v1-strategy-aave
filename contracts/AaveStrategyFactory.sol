@@ -32,6 +32,7 @@ contract AaveStrategyFactory {
         returns (AaveStrategy strategy)
     {
         strategy = new AaveStrategy(_vault, token, aToken, _lendingPool, slippage, metadata);
+        strategy.transferOwnership(msg.sender);
         emit StrategyCreated(strategy);
     }
 }
