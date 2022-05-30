@@ -1,8 +1,7 @@
-import { bn, deploy, fp, getSigner, impersonate, instanceAt } from '@mimic-fi/v1-helpers'
+import { bn, deploy, fp, getSigner, impersonate, instanceAt, advanceTime, HOUR } from '@mimic-fi/v1-helpers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
 import { expect } from 'chai'
 import { BigNumber, Contract } from 'ethers'
-import { network } from 'hardhat'
 
 describe('AaveStrategy - USDC - Lend', function () {
   let whale: SignerWithAddress,
@@ -140,8 +139,7 @@ describe('AaveStrategy - USDC - Lend', function () {
   it('more gains to recover lost in single token join slipage', async () => {
     const previousValue = await vault.getAccountCurrentValue(whale.address, strategy.address)
 
-    await network.provider.send('evm_increaseTime', [3600])
-    await network.provider.send('evm_mine')
+    await advanceTime(HOUR)
 
     const currentValue = await vault.getAccountCurrentValue(whale.address, strategy.address)
     expect(currentValue).to.be.gt(previousValue)
