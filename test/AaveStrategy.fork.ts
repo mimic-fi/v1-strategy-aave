@@ -9,9 +9,9 @@ import {
   impersonate,
   instanceAt,
 } from '@mimic-fi/v1-helpers'
-import {SignerWithAddress} from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
-import {expect} from 'chai'
-import {BigNumber, Contract} from 'ethers'
+import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address'
+import { expect } from 'chai'
+import { BigNumber, Contract } from 'ethers'
 
 /* eslint-disable no-secrets/no-secrets */
 
