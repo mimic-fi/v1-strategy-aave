@@ -65,7 +65,7 @@ describe('AaveStrategy - USDC', function () {
       [priceOracle.address, UNISWAP_V3_ROUTER, UNISWAP_V2_ROUTER, BALANCER_V2_VAULT]
     )
 
-    await swapConnector.setUniswapV2Path(USDC, WETH)
+    await swapConnector.setUniswapV2Path([USDC, WETH])
 
     vault = await deploy('@mimic-fi/v1-vault/artifacts/contracts/Vault.sol/Vault', [
       maxSlippage,
