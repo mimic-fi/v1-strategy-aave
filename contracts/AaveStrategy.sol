@@ -33,6 +33,7 @@ contract AaveStrategy is IStrategy, Ownable {
     using FixedPoint for uint256;
 
     uint256 private constant MAX_SLIPPAGE = 10e16; // 10%
+    uint256 private constant SWAP_THRESHOLD = 10; // 10 wei
     uint256 private constant VAULT_EXIT_RATIO_PRECISION = 1e18;
 
     event SetSlippage(uint256 slippage);
@@ -158,6 +159,8 @@ contract AaveStrategy is IStrategy, Ownable {
         IPriceOracle priceOracle = IPriceOracle(_vault.priceOracle());
         uint256 price = priceOracle.getTokenPrice(address(tokenOut), address(tokenIn));
         uint256 minAmountOut = amountIn.mulUp(price).mulUp(FixedPoint.ONE - _slippage);
+        if (minAmountOut < SWAP_THRESHOLD) return;
+
         address swapConnector = _vault.swapConnector();
         tokenIn.safeTransfer(swapConnector, amountIn);
 
