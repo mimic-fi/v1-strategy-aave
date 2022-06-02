@@ -156,8 +156,7 @@ describe('AaveStrategy - USDC', function () {
 
     // The user should at least have some gains
     const currentBalance = await vault.getAccountBalance(whale.address, usdc.address)
-    const minExpectedBalance = JOIN_AMOUNT.mul(exitRatio).div(fp(1))
-    expect(currentBalance.sub(previousBalance)).to.be.gt(minExpectedBalance)
+    expect(currentBalance).to.be.gt(previousBalance)
 
     // There should not be any remaining tokens in the strategy
     const currentStrategyBalance = await usdc.balanceOf(strategy.address)
@@ -166,9 +165,7 @@ describe('AaveStrategy - USDC', function () {
     const expectedValue = await aToken.balanceOf(strategy.address)
     const currentInvestment = await vault.getAccountInvestment(whale.address, strategy.address)
     expectWithError(currentInvestment.invested, expectedValue)
-
-    const expectedShares = previousInvestment.shares.sub(previousInvestment.shares.mul(exitRatio).div(fp(1)))
-    expectWithError(currentInvestment.shares, expectedShares)
+    expectWithError(currentInvestment.shares, previousInvestment.shares.mul(fp(1).sub(exitRatio)).div(fp(1)))
 
     const strategyShares = await vault.getStrategyShares(strategy.address)
     expectWithError(strategyShares, currentInvestment.shares)
@@ -212,8 +209,7 @@ describe('AaveStrategy - USDC', function () {
 
     // The user should at least have some gains
     const currentBalance = await vault.getAccountBalance(whale.address, usdc.address)
-    const minExpectedBalance = JOIN_AMOUNT.mul(exitRatio).div(fp(1))
-    expect(currentBalance.sub(previousBalance)).to.be.gt(minExpectedBalance)
+    expect(currentBalance).to.be.gt(previousBalance)
 
     // There should not be any remaining tokens in the strategy
     const currentStrategyBalance = await usdc.balanceOf(strategy.address)
