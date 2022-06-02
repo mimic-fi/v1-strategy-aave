@@ -43,7 +43,7 @@ describe('AaveStrategy - USDC', function () {
 
   before('load signers', async () => {
     // eslint-disable-next-line prettier/prettier
-    [owner, trader] = await getSigners(2)
+    [, owner, trader] = await getSigners()
     whale = await impersonate(WHALE_WITH_USDC, fp(100))
   })
 
@@ -101,13 +101,35 @@ describe('AaveStrategy - USDC', function () {
     await weth.connect(trader).deposit({ value: fp(50) })
   })
 
-  it('has the correct owner', async () => {
+  it('deploys the strategy correctly', async () => {
+    expect(await strategy.getVault()).to.be.equal(vault.address)
+    expect(await strategy.getToken()).to.be.equal(USDC)
+    expect(await strategy.getAToken()).to.be.equal(AUSDC)
+    expect(await strategy.getLendingPool()).to.be.equal(LENDING_POOL)
+    expect(await strategy.getSlippage()).to.be.equal(fp(0.01))
+    expect(await strategy.getMetadataURI()).to.be.equal('metadata:uri')
+    expect(await strategy.getTotalValue()).to.be.equal(0)
+    expect(await strategy.getValueRate()).to.be.equal(fp(1))
     expect(await strategy.owner()).to.be.equal(owner.address)
   })
 
-  it('sets metadata', async () => {
-    await strategy.connect(owner).setMetadataURI('metadata:uri:2.0')
-    expect(await strategy.getMetadataURI()).to.be.equal('metadata:uri:2.0')
+  it('allows the owner to set a new metadata', async () => {
+    const newMetadata = 'metadata:uri:2.0'
+
+    await strategy.connect(owner).setMetadataURI(newMetadata)
+    expect(await strategy.getMetadataURI()).to.be.equal(newMetadata)
+
+    await expect(strategy.setMetadataURI(newMetadata)).to.be.revertedWith('Ownable: caller is not the owner')
+  })
+
+  it('allows the owner to set a new slippage', async () => {
+    const currentSlippage = await strategy.getSlippage()
+    const newSlippage = currentSlippage.add(1)
+
+    await strategy.connect(owner).setSlippage(newSlippage)
+    expect(await strategy.getSlippage()).to.be.equal(newSlippage)
+
+    await expect(strategy.setSlippage(newSlippage)).to.be.revertedWith('Ownable: caller is not the owner')
   })
 
   it('joins the strategy', async () => {
