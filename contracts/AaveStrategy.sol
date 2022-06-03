@@ -67,46 +67,83 @@ contract AaveStrategy is IStrategy, Ownable {
         _setMetadataURI(metadataURI);
     }
 
+    /**
+     * @dev Tells the address of the Mimic Vault
+     */
     function getVault() external view returns (address) {
         return address(_vault);
     }
 
+    /**
+     * @dev Tells the token that will be used as the strategy entry point
+     */
     function getToken() external view override returns (address) {
         return address(_token);
     }
 
+    /**
+     * @dev Tells the AAVE token associated to the strategy token
+     */
     function getAToken() external view returns (address) {
         return address(_aToken);
     }
 
+    /**
+     * @dev Tells the lending pool associated to the AAVE token
+     */
     function getLendingPool() external view returns (address) {
         return address(_lendingPool);
     }
 
+    /**
+     * @dev Tell the metadata URI associated to the strategy
+     */
     function getMetadataURI() external view override returns (string memory) {
         return _metadataURI;
     }
 
+    /**
+     * @dev Tell the slippage used to swap rewards
+     */
     function getSlippage() public view returns (uint256) {
         return _slippage;
     }
 
-    function getValueRate() external pure override returns (uint256) {
-        return FixedPoint.ONE;
-    }
-
+    /**
+     * @dev Tells how much value the strategy has over time.
+     * For example, if a strategy has a value of 100 in T0, and then it has a value of 120 in T1,
+     * It means it gained a 20% between T0 and T1 due to the appreciation of the A token.
+     */
     function getTotalValue() external view override returns (uint256) {
         return _getATokenBalance();
     }
 
+    /**
+     * @dev Tells how much a value unit means expressed in the strategy token.
+     * For example, if a strategy has a value of 100 in T0, and then it has a value of 120 in T1,
+     * and the value rate is 1.5, it means the strategy has earned 30 strategy tokens between T0 and T1.
+     */
+    function getValueRate() external pure override returns (uint256) {
+        return FixedPoint.ONE;
+    }
+
+    /**
+     * @dev Setter to update the slippage
+     */
     function setSlippage(uint256 newSlippage) external onlyOwner {
         _setSlippage(newSlippage);
     }
 
+    /**
+     * @dev Setter to override the existing metadata URI
+     */
     function setMetadataURI(string memory metadataURI) external onlyOwner {
         _setMetadataURI(metadataURI);
     }
 
+    /**
+     * @dev Strategy onJoin hook
+     */
     function onJoin(uint256 amount, bytes memory)
         external
         override
@@ -118,6 +155,9 @@ contract AaveStrategy is IStrategy, Ownable {
         totalValue = _getATokenBalance();
     }
 
+    /**
+     * @dev Strategy onExit hook
+     */
     function onExit(uint256 ratio, bool emergency, bytes memory)
         external
         override
@@ -138,6 +178,11 @@ contract AaveStrategy is IStrategy, Ownable {
         totalValue = _getATokenBalance();
     }
 
+    /**
+     * @dev Invest all the balance of a token in the strategy into the AAVE lending pool.
+     * If the requested token is not the same token as the strategy token it will be swapped before joining the pool.
+     * This method is marked as public so it can be used externally by anyone in case of an airdrop.
+     */
     function invest(IERC20 token) public {
         require(token != _aToken, 'AAVE_INTERNAL_TOKEN');
 
@@ -152,6 +197,9 @@ contract AaveStrategy is IStrategy, Ownable {
         _lendingPool.deposit(address(_token), amount, address(this), 0);
     }
 
+    /**
+     * @dev Internal function to swap a pair of tokens using the Vault's swap connector
+     */
     function _swap(IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn) internal {
         if (amountIn == 0) return;
         require(tokenIn != tokenOut, 'SWAP_SAME_TOKEN');
@@ -182,15 +230,24 @@ contract AaveStrategy is IStrategy, Ownable {
         require(postBalanceOut >= preBalanceOut.add(amountOut), 'SWAP_INVALID_AMOUNT_OUT');
     }
 
+    /**
+     * @dev Internal function to get the A token balance
+     */
     function _getATokenBalance() internal view returns (uint256) {
         return _aToken.balanceOf(address(this));
     }
 
+    /**
+     * @dev Internal function to set the metadata URI
+     */
     function _setMetadataURI(string memory metadataURI) private {
         _metadataURI = metadataURI;
         emit SetMetadataURI(metadataURI);
     }
 
+    /**
+     * @dev Internal function to set the slippage
+     */
     function _setSlippage(uint256 newSlippage) private {
         require(newSlippage <= MAX_SLIPPAGE, 'SLIPPAGE_ABOVE_MAX');
         _slippage = newSlippage;
