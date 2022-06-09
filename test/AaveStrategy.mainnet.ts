@@ -206,7 +206,7 @@ describe('AaveStrategy - USDC', function () {
     const previousValue = await vault.getAccountCurrentValue(WHALE, strategy.address)
 
     // Airdrop 1000 USDC and invest it
-    usdc.connect(trader).transfer(strategy.address, toUSDC(100))
+    await usdc.connect(trader).transfer(strategy.address, toUSDC(100))
     await strategy.invest(USDC)
 
     const currentValue = await vault.getAccountCurrentValue(WHALE, strategy.address)
@@ -217,7 +217,7 @@ describe('AaveStrategy - USDC', function () {
     const previousValue = await vault.getAccountCurrentValue(WHALE, strategy.address)
 
     // Airdrop 50 wETH and invest
-    weth.connect(trader).transfer(strategy.address, fp(50))
+    await weth.connect(trader).transfer(strategy.address, fp(50))
     await strategy.invest(WETH)
 
     const currentValue = await vault.getAccountCurrentValue(WHALE, strategy.address)
