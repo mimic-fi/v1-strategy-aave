@@ -16,22 +16,41 @@ pragma solidity ^0.8.0;
 
 import './AaveStrategy.sol';
 
+/**
+ * @title AaveStrategyFactory
+ * @dev Factory contract to create AaveStrategy contracts
+ */
 contract AaveStrategyFactory {
+    /**
+     * @dev Emitted every time a new AaveStrategy is created
+     */
     event StrategyCreated(AaveStrategy indexed strategy);
 
-    IVault public _vault;
-    ILendingPool internal immutable _lendingPool;
+    IVault public immutable vault;
+    ILendingPool internal immutable lendingPool;
 
-    constructor(IVault vault, ILendingPool lendingPool) {
-        _vault = vault;
-        _lendingPool = lendingPool;
+    /**
+     * @dev Initializes the factory contract
+     * @param _vault Protocol vault reference
+     * @param _lendingPool AAVE lending pool to be used
+     */
+    constructor(IVault _vault, ILendingPool _lendingPool) {
+        vault = _vault;
+        lendingPool = _lendingPool;
     }
 
+    /**
+     * @dev Creates a new AaveStrategy
+     * @param token Token to be used as the strategy entry point
+     * @param aToken aToken associated to the strategy token
+     * @param slippage Slippage value to be used in order to swap rewards
+     * @param metadata Metadata URI associated to the strategy
+     */
     function create(IERC20 token, IERC20 aToken, uint256 slippage, string memory metadata)
         external
         returns (AaveStrategy strategy)
     {
-        strategy = new AaveStrategy(_vault, token, aToken, _lendingPool, slippage, metadata);
+        strategy = new AaveStrategy(vault, token, aToken, lendingPool, slippage, metadata);
         strategy.transferOwnership(msg.sender);
         emit StrategyCreated(strategy);
     }

@@ -28,29 +28,60 @@ import '@openzeppelin/contracts/utils/math/SafeMath.sol';
 
 import './aave/ILendingPool.sol';
 
+/**
+ * @title AaveStrategy
+ * @dev This strategy invests tokens in AAVE lending pools, obtaining aTokens in exchange to accrue value over time
+ */
 contract AaveStrategy is IStrategy, Ownable {
     using SafeERC20 for IERC20;
     using FixedPoint for uint256;
 
-    uint256 private constant MAX_SLIPPAGE = 10e16; // 10%
-    uint256 private constant SWAP_THRESHOLD = 10; // 10 wei
+    // Max value in order to cap the slippage config: 10%
+    uint256 private constant MAX_SLIPPAGE = 10e16;
+
+    // Min value in order to limit the amount of token rewards to be swapped in the strategy: 10 wei
+    uint256 private constant SWAP_THRESHOLD = 10;
+
+    // Precision value used by Mimic's Vault to avoid rounding errors
     uint256 private constant VAULT_EXIT_RATIO_PRECISION = 1e18;
 
+    /**
+     * @dev Emitted every time a new slippage value is set
+     */
     event SetSlippage(uint256 slippage);
 
+    // Mimic Vault reference
     IVault internal immutable _vault;
+
+    // Token that will be used as the strategy entry point
     IERC20 internal immutable _token;
+
+    // aToken associated to the strategy token
     IERC20 internal immutable _aToken;
+
+    // AAVE lending pool to invest the strategy tokens
     ILendingPool internal immutable _lendingPool;
 
     uint256 private _slippage;
     string private _metadataURI;
 
+    /**
+     * @dev Used to mark functions that can only be called by the protocol vault
+     */
     modifier onlyVault() {
         require(address(_vault) == msg.sender, 'CALLER_IS_NOT_VAULT');
         _;
     }
 
+    /**
+     * @dev Initializes the AAVE strategy contract
+     * @param vault Protocol vault reference
+     * @param token Token to be used as the strategy entry point
+     * @param aToken aToken associated to the strategy token
+     * @param lendingPool AAVE lending pool to be used
+     * @param slippage Slippage value to be used in order to swap rewards
+     * @param metadataURI Metadata URI associated to the strategy
+     */
     constructor(
         IVault vault,
         IERC20 token,
@@ -82,14 +113,14 @@ contract AaveStrategy is IStrategy, Ownable {
     }
 
     /**
-     * @dev Tells the AAVE token associated to the strategy token
+     * @dev Tells the aToken associated to the strategy token
      */
     function getAToken() external view returns (address) {
         return address(_aToken);
     }
 
     /**
-     * @dev Tells the lending pool associated to the AAVE token
+     * @dev Tells the lending pool used by the strategy
      */
     function getLendingPool() external view returns (address) {
         return address(_lendingPool);
@@ -129,13 +160,15 @@ contract AaveStrategy is IStrategy, Ownable {
 
     /**
      * @dev Setter to update the slippage
+     * @param slippage New slippage to be set
      */
-    function setSlippage(uint256 newSlippage) external onlyOwner {
-        _setSlippage(newSlippage);
+    function setSlippage(uint256 slippage) external onlyOwner {
+        _setSlippage(slippage);
     }
 
     /**
      * @dev Setter to override the existing metadata URI
+     * @param metadataURI New metadata to be set
      */
     function setMetadataURI(string memory metadataURI) external onlyOwner {
         _setMetadataURI(metadataURI);
@@ -143,6 +176,7 @@ contract AaveStrategy is IStrategy, Ownable {
 
     /**
      * @dev Strategy onJoin hook
+     * @param amount Amount of strategy tokens to invest
      */
     function onJoin(uint256 amount, bytes memory)
         external
@@ -157,6 +191,8 @@ contract AaveStrategy is IStrategy, Ownable {
 
     /**
      * @dev Strategy onExit hook
+     * @param ratio Ratio of the invested position to exit
+     * @param emergency Tells if the exit call is an emergency or not, if it is then no investments are made, simply exit
      */
     function onExit(uint256 ratio, bool emergency, bytes memory)
         external
@@ -182,6 +218,7 @@ contract AaveStrategy is IStrategy, Ownable {
      * @dev Invest all the balance of a token in the strategy into the AAVE lending pool.
      * If the requested token is not the same token as the strategy token it will be swapped before joining the pool.
      * This method is marked as public so it can be used externally by anyone in case of an airdrop.
+     * @param token Token to invest all its balance, it cannot be the aToken of the strategy
      */
     function invest(IERC20 token) public {
         require(token != _aToken, 'AAVE_INTERNAL_TOKEN');
@@ -199,6 +236,9 @@ contract AaveStrategy is IStrategy, Ownable {
 
     /**
      * @dev Internal function to swap a pair of tokens using the Vault's swap connector
+     * @param tokenIn Token to be sent
+     * @param tokenOut Token to received
+     * @param amountIn Amount of tokenIn being swapped
      */
     function _swap(IERC20 tokenIn, IERC20 tokenOut, uint256 amountIn) internal {
         if (amountIn == 0) return;
@@ -239,6 +279,7 @@ contract AaveStrategy is IStrategy, Ownable {
 
     /**
      * @dev Internal function to set the metadata URI
+     * @param metadataURI New metadata to be set
      */
     function _setMetadataURI(string memory metadataURI) private {
         _metadataURI = metadataURI;
@@ -247,10 +288,11 @@ contract AaveStrategy is IStrategy, Ownable {
 
     /**
      * @dev Internal function to set the slippage
+     * @param slippage New slippage to be set
      */
-    function _setSlippage(uint256 newSlippage) private {
-        require(newSlippage <= MAX_SLIPPAGE, 'SLIPPAGE_ABOVE_MAX');
-        _slippage = newSlippage;
-        emit SetSlippage(newSlippage);
+    function _setSlippage(uint256 slippage) private {
+        require(slippage <= MAX_SLIPPAGE, 'SLIPPAGE_ABOVE_MAX');
+        _slippage = slippage;
+        emit SetSlippage(slippage);
     }
 }
